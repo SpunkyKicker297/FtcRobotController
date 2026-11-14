@@ -2,6 +2,12 @@
 
 This repository contains the public FTC SDK for the BIOBUZZ (2026-2027) competition season.
 
+## Team deployment
+
+To build our TeamCode and upload it to the REV Control Hub from this IDE (no
+Android Studio required), see **[DEPLOY.md](DEPLOY.md)** for the full step-by-step
+sequence and the TeleOp control reference.
+
 ## Welcome!
 This GitHub repository contains the source code that is used to build an Android app to control a *FIRST* Tech Challenge competition robot.  To use this SDK, download/clone the entire project to your local computer.
 
