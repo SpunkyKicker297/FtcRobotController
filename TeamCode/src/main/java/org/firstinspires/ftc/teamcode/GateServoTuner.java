@@ -1,37 +1,46 @@
 /*
  * GateServoTuner.java
  *
- * A dedicated test OpMode for finding the ideal OPEN and CLOSED positions of the
- * control gate servo (control_gate_1). Nothing else moves -- no motors run -- so
- * you can safely watch the gate while you adjust it.
+ * A dedicated test OpMode for finding and checking the OPEN (up) and CLOSED (down)
+ * positions of the control gate servo (control_gate_1). No motors run, so you can
+ * safely watch the gate while you adjust it.
+ *
+ * Button names match the REV USB PS4-style gamepad (REV-31-2983).
  *
  * -----------------------------------------------------------------------------
  * CONTROLS (gamepad1)
  * -----------------------------------------------------------------------------
- *   D-pad up (press) ......... move the gate UP one small step
- *   D-pad down (press) ....... move the gate DOWN one small step
- *   Hold right bumper ........ use BIG steps instead (for moving quickly)
- *   A (press) ................ save the current position as "OPEN"
- *   B (press) ................ save the current position as "CLOSED"
- *   X (press) ................ jump to the saved OPEN position
- *   Y (press) ................ jump to the saved CLOSED position
+ *   COMPETITION POSITIONS (the values currently in RobotHardware.java)
+ *     Triangle (press) ...... full move to competition UP   (GATE_OPEN_POSITION)
+ *     Cross    (press) ...... full move to competition DOWN (GATE_CLOSED_POSITION)
+ *
+ *   FINE ADJUSTMENT
+ *     D-pad up   (press) .... move the gate UP one small step
+ *     D-pad down (press) .... move the gate DOWN one small step
+ *     Hold R1 ............... use BIG steps instead
+ *
+ *   SAVING NEW VALUES WHILE TUNING
+ *     Square (press) ........ save current position as the new OPEN value
+ *     Circle (press) ........ save current position as the new CLOSED value
+ *     D-pad left  (press) ... jump to the saved OPEN value
+ *     D-pad right (press) ... jump to the saved CLOSED value
  *
  * -----------------------------------------------------------------------------
  * HOW TO USE IT
  * -----------------------------------------------------------------------------
- *   1. Press PLAY. The gate starts at the CLOSED value from RobotHardware.java.
- *   2. Use D-pad up/down until the gate is where "open" should be. Press A.
- *   3. Use D-pad up/down until the gate is where "closed" should be. Press B.
- *   4. Press X and Y a few times to check both positions look right.
- *   5. Copy the two numbers shown on the Driver Station into RobotHardware.java:
+ *   1. Press Triangle and Cross to see how the CURRENT competition values behave.
+ *   2. If they need changing, nudge with the D-pad to the right "open" spot and
+ *      press Square, then to the right "closed" spot and press Circle.
+ *   3. Copy the two numbers shown on the Driver Station into RobotHardware.java:
  *        GATE_OPEN_POSITION   = <OPEN value>
  *        GATE_CLOSED_POSITION = <CLOSED value>
  *      (Replace the GATE_CLOSED_POSITION formula with the plain number.)
+ *   4. Redeploy, and press Triangle / Cross again to confirm.
  *
  * Saved values are NOT stored on the robot -- write them down before you stop.
  *
- * SAFETY: If the gate hits something and the servo buzzes or strains, step back
- * immediately. A stalled servo can overheat.
+ * SAFETY: If the gate hits something and the servo buzzes or strains, move it
+ * back immediately. A stalled servo can overheat.
  */
 
 package org.firstinspires.ftc.teamcode;
@@ -61,38 +70,67 @@ public class GateServoTuner extends LinearOpMode {
         double position    = RobotHardware.GATE_CLOSED_POSITION;
         double savedOpen   = RobotHardware.GATE_OPEN_POSITION;
         double savedClosed = RobotHardware.GATE_CLOSED_POSITION;
+        String lastAction  = "Start (competition DOWN)";
 
-        boolean prevUp = false, prevDown = false;
-        boolean prevA = false, prevB = false, prevX = false, prevY = false;
+        boolean prevUp = false, prevDown = false, prevLeft = false, prevRight = false;
+        boolean prevTriangle = false, prevCross = false, prevSquare = false, prevCircle = false;
 
         telemetry.addLine("Gate Servo Tuner ready. Hands clear of the gate.");
-        telemetry.addLine("Press PLAY - the gate moves to the CLOSED preset.");
+        telemetry.addLine("Press PLAY - the gate moves to competition DOWN.");
         telemetry.update();
 
         waitForStart();
         gate.setPosition(position);
 
         while (opModeIsActive()) {
-            double step = gamepad1.right_bumper ? BIG_STEP : SMALL_STEP;
+            double step = gamepad1.right_bumper ? BIG_STEP : SMALL_STEP;  // R1
 
-            // Nudge up / down (one step per press).
-            if (gamepad1.dpad_up && !prevUp)     position += UP_SIGN * step;
-            if (gamepad1.dpad_down && !prevDown) position -= UP_SIGN * step;
+            // Competition positions: full move in a single press.
+            if (gamepad1.triangle && !prevTriangle) {
+                position = RobotHardware.GATE_OPEN_POSITION;
+                lastAction = "Competition UP";
+            }
+            if (gamepad1.cross && !prevCross) {
+                position = RobotHardware.GATE_CLOSED_POSITION;
+                lastAction = "Competition DOWN";
+            }
 
-            // Save the current position.
-            if (gamepad1.a && !prevA) savedOpen   = position;
-            if (gamepad1.b && !prevB) savedClosed = position;
+            // Fine adjustment.
+            if (gamepad1.dpad_up && !prevUp) {
+                position += UP_SIGN * step;
+                lastAction = "Nudge up";
+            }
+            if (gamepad1.dpad_down && !prevDown) {
+                position -= UP_SIGN * step;
+                lastAction = "Nudge down";
+            }
 
-            // Jump to a saved position to check it.
-            if (gamepad1.x && !prevX) position = savedOpen;
-            if (gamepad1.y && !prevY) position = savedClosed;
+            // Save and recall tuning values.
+            if (gamepad1.square && !prevSquare) {
+                savedOpen = position;
+                lastAction = "Saved OPEN";
+            }
+            if (gamepad1.circle && !prevCircle) {
+                savedClosed = position;
+                lastAction = "Saved CLOSED";
+            }
+            if (gamepad1.dpad_left && !prevLeft) {
+                position = savedOpen;
+                lastAction = "Jump to saved OPEN";
+            }
+            if (gamepad1.dpad_right && !prevRight) {
+                position = savedClosed;
+                lastAction = "Jump to saved CLOSED";
+            }
 
-            prevUp = gamepad1.dpad_up;
-            prevDown = gamepad1.dpad_down;
-            prevA = gamepad1.a;
-            prevB = gamepad1.b;
-            prevX = gamepad1.x;
-            prevY = gamepad1.y;
+            prevTriangle = gamepad1.triangle;
+            prevCross    = gamepad1.cross;
+            prevSquare   = gamepad1.square;
+            prevCircle   = gamepad1.circle;
+            prevUp       = gamepad1.dpad_up;
+            prevDown     = gamepad1.dpad_down;
+            prevLeft     = gamepad1.dpad_left;
+            prevRight    = gamepad1.dpad_right;
 
             // Keep within the servo's legal range and send it.
             position = Math.max(0.0, Math.min(1.0, position));
@@ -105,18 +143,21 @@ public class GateServoTuner extends LinearOpMode {
             telemetry.addData("Current position", "%.3f", position);
             telemetry.addData("Approx. angle", "%.1f deg",
                     position * RobotHardware.SERVO_RANGE_DEGREES);
-            telemetry.addData("Step size", step == BIG_STEP ? "BIG (RB held)" : "small");
+            telemetry.addData("Last action", lastAction);
+            telemetry.addData("Step size", step == BIG_STEP ? "BIG (R1 held)" : "small");
             telemetry.addLine();
-            telemetry.addData("Saved OPEN   (A)", "%.3f", savedOpen);
-            telemetry.addData("Saved CLOSED (B)", "%.3f", savedClosed);
-            telemetry.addData("Travel between them", "%.1f deg", travelDeg);
+            telemetry.addData("Competition UP / DOWN", "%.3f / %.3f",
+                    RobotHardware.GATE_OPEN_POSITION, RobotHardware.GATE_CLOSED_POSITION);
+            telemetry.addData("Saved OPEN   (Square)", "%.3f", savedOpen);
+            telemetry.addData("Saved CLOSED (Circle)", "%.3f", savedClosed);
+            telemetry.addData("Saved travel", "%.1f deg", travelDeg);
             telemetry.addLine();
             telemetry.addLine("Copy into RobotHardware.java:");
             telemetry.addLine(String.format("  GATE_OPEN_POSITION   = %.3f", savedOpen));
             telemetry.addLine(String.format("  GATE_CLOSED_POSITION = %.3f", savedClosed));
             telemetry.addLine();
-            telemetry.addLine("Dpad up/down=nudge  RB=big steps");
-            telemetry.addLine("A=save OPEN  B=save CLOSED  X/Y=go to OPEN/CLOSED");
+            telemetry.addLine("Triangle=UP  Cross=DOWN  Dpad up/down=nudge  R1=big");
+            telemetry.addLine("Square/Circle=save OPEN/CLOSED  Dpad L/R=go to saved");
             telemetry.update();
         }
     }

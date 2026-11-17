@@ -77,17 +77,17 @@ public class RobotHardware {
     // speed servos are commonly 300 degrees; some are 180 or 270. Check yours.
     public static final double SERVO_RANGE_DEGREES = 300.0;
     // How far the gate swings between closed and open (15-20 degrees).
-    public static final double GATE_TRAVEL_DEGREES = 18.0;
+    public static final double GATE_TRAVEL_DEGREES = 30.0;
     // Servo positions can only be 0.0 to 1.0 (no negative values), so we place the
     // OPEN position slightly above 0.0 and put CLOSED one full travel beyond it.
     // On this robot a HIGHER servo value LOWERS the gate.
     //
     // Servo position (0.0-1.0) when the gate is OPEN. Adjust to your mounting.
-    public static final double GATE_OPEN_POSITION = 0.06;
+    public static final double GATE_OPEN_POSITION = 0.130;
     // Servo position when the gate is CLOSED: GATE_TRAVEL_DEGREES further from open.
     // Opening the gate moves it back exactly GATE_TRAVEL_DEGREES.
-    public static final double GATE_CLOSED_POSITION =
-            GATE_OPEN_POSITION + (GATE_TRAVEL_DEGREES / SERVO_RANGE_DEGREES);
+    //public static final double GATE_CLOSED_POSITION = GATE_OPEN_POSITION + (GATE_TRAVEL_DEGREES / SERVO_RANGE_DEGREES);
+    public static final double GATE_CLOSED_POSITION = 0.300;
 
     // ------------------------------------------------------------------
     //  Encoder / drivetrain geometry  --  TUNE THESE FOR YOUR ROBOT
@@ -266,12 +266,12 @@ public class RobotHardware {
 
     /** Run the intake inward at the default power. */
     public void intakeIn() {
-        intakeMotor.setPower(INTAKE_POWER);
+        intakeMotor.setPower(-INTAKE_POWER);
     }
 
     /** Run the intake outward (eject) at the default power. */
     public void intakeOut() {
-        intakeMotor.setPower(-INTAKE_POWER);
+        intakeMotor.setPower(INTAKE_POWER);
     }
 
     /** Stop the intake motor. */
@@ -320,6 +320,21 @@ public class RobotHardware {
     /** Stop the secondary intake. */
     public void feedOff() {
         intake2Motor.setPower(0);
+    }
+
+    /**
+     * Shooting feed: run the PRIMARY and SECONDARY intakes together, so pollen
+     * stuck in the primary intake gets pushed through to the shooter.
+     */
+    public void shootFeedOn() {
+        intakeIn();    // same direction as the driver's "collect" button
+        feedOn();
+    }
+
+    /** Stop both intakes used for the shooting feed. */
+    public void shootFeedOff() {
+        stopIntake();
+        feedOff();
     }
 
     /** Run the secondary intake at an arbitrary power (-1.0 to 1.0). */

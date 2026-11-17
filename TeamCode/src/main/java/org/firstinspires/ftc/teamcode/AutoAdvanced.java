@@ -11,9 +11,10 @@
  *      The flywheel then coasts down while the robot starts driving.
  *   4. The movement routine below (drive off wall, turn, drive across, park).
  *
- * If the flywheel never reaches its target RPM within SPINUP_TIMEOUT_SECONDS, the
- * shot is SKIPPED (gate stays closed) and the robot goes straight to parking, so
- * a shooter problem can't cost you the parking points.
+ * If the flywheel doesn't pass the RPM check within SPINUP_TIMEOUT_SECONDS, the
+ * robot FIRES ANYWAY (gate opens, feed runs) so the full sequence always happens.
+ * The "Shot" line on the Driver Station stays visible during driving and says
+ * whether the RPM was verified, how long spin-up took, and the peak RPM reached.
  *
  * Tune TARGET_RPM / RPM_TOLERANCE in ShooterSequence.java (shared with TeleOp).
  *
@@ -51,6 +52,8 @@ public class AutoAdvanced extends LinearOpMode {
     private final RobotHardware robot = new RobotHardware();
     private final ElapsedTime timer = new ElapsedTime();
     private ShooterSequence shooter;   // created after robot.init()
+    // Summary of how the shot went; stays on the Driver Station during driving.
+    private String shotReport = "not run yet";
 
     // ---------------------------------------------------------------------
     //  SHOOTING SETTINGS  --  tune these
@@ -103,12 +106,13 @@ public class AutoAdvanced extends LinearOpMode {
         // STEP 4: THE MOVEMENT ROUTINE  --  read it top to bottom, edit freely.
         // =====================================================================
         driveBackward(12);   // pull off the wall
-        strafeRight(12*4);     // strafe around the collector
-        driveBackward(12*6);   // park
+        strafeRight(12*3.5);     // strafe around the collector
+        driveBackward(12*5);   // park
 
         robot.stop();
 
         telemetry.addData("Status", "Done - parked");
+        telemetry.addData("Shot", shotReport);
         telemetry.update();
         while (opModeIsActive()) {
             idle();
@@ -164,27 +168,43 @@ public class AutoAdvanced extends LinearOpMode {
         shooter.toggle();
 
         // Startup step 2-3: wait until RPM is verified and feeding has started.
+        double peakRpm = 0.0;
         timer.reset();
         while (opModeIsActive()
-                && shooter.getState() != ShooterSequence.State.FEEDING
+                && !shooter.isGateOpen()
                 && timer.seconds() < SPINUP_TIMEOUT_SECONDS) {
             shooter.update();
+            peakRpm = Math.max(peakRpm, robot.getShooterRpm());
             showShooterTelemetry("Spinning up");
         }
+        double spinupSeconds = timer.seconds();
 
-        if (shooter.getState() == ShooterSequence.State.FEEDING) {
-            // Gate is open and the feed intake is running: keep shooting.
+        if (shooter.isGateOpen()) {
+            shotReport = String.format("RPM verified in %.1f s (peak %.0f)",
+                    spinupSeconds, peakRpm);
+        } else {
+            // RPM check never passed in time. Shoot anyway so the full sequence
+            // always runs; the report shows why the check didn't pass.
+            shooter.forceFeed();
+            shotReport = String.format("RPM NOT verified after %.1f s (peak %.0f of %.0f)"
+                    + " - fired anyway", spinupSeconds, peakRpm, ShooterSequence.TARGET_RPM);
+        }
+
+        // Gate is up; wait GATE_SETTLE_SECONDS for the secondary intake to start.
+        while (opModeIsActive()
+                && shooter.getState() == ShooterSequence.State.OPENING) {
+            shooter.update();
+            showShooterTelemetry("Gate opening");
+        }
+
+        // Both intakes are running: keep shooting for the full window.
+        if (opModeIsActive()) {
             timer.reset();
             while (opModeIsActive() && timer.seconds() < shootSeconds) {
                 shooter.update();
                 showShooterTelemetry(String.format("Shooting (%.1f s left)",
                         shootSeconds - timer.seconds()));
             }
-        } else {
-            // Never reached target RPM -- skip the shot so we still park.
-            telemetry.addData("Shooter", "Spin-up timed out at %.0f RPM - shot skipped",
-                    robot.getShooterRpm());
-            telemetry.update();
         }
 
         // Shutdown (reverse): feed off -> gate closed -> flywheel off.
@@ -195,6 +215,7 @@ public class AutoAdvanced extends LinearOpMode {
     /** Telemetry shown while the shooter sequence runs. */
     private void showShooterTelemetry(String phase) {
         telemetry.addData("Phase", phase);
+        telemetry.addData("Shot", shotReport);
         telemetry.addData("Shooter state", shooter.getState());
         telemetry.addData("RPM actual / target", "%.0f / %.0f",
                 robot.getShooterRpm(), ShooterSequence.TARGET_RPM);
@@ -238,6 +259,7 @@ public class AutoAdvanced extends LinearOpMode {
 
             robot.drive(axial, lateral, 0.0);
 
+            telemetry.addData("Shot", shotReport);
             telemetry.addData("Maneuver", label);
             telemetry.addData("Target / Current", "%d / %.0f ticks",
                     targetTicks, robot.getAverageDriveTicks());
@@ -270,6 +292,7 @@ public class AutoAdvanced extends LinearOpMode {
 
             robot.drive(0.0, 0.0, power);
 
+            telemetry.addData("Shot", shotReport);
             telemetry.addData("Maneuver", label);
             telemetry.addData("Target / Current", "%.0f / %.1f deg",
                     targetHeading, robot.getHeading());

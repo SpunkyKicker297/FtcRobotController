@@ -15,25 +15,27 @@
  * -----------------------------------------------------------------------------
  * CONTROLS (gamepad1)
  * -----------------------------------------------------------------------------
+ *   Button names match the REV USB PS4-style gamepad (REV-31-2983).
+ *
  *   DRIVE MOTORS (one at a time) -- hold a button, push LEFT STICK Y for power:
- *     X ... front left       Y ... front right
- *     A ... back left        B ... back right
+ *     Square ... front left      Triangle ... front right
+ *     Cross .... back left       Circle ..... back right
  *
  *   PRIMARY INTAKE (intake_1)
- *     Right bumper (hold) ... IN          Left bumper (hold) ... OUT
+ *     R1 (hold) ............. IN          L1 (hold) ............ OUT
  *
  *   SECONDARY / FEED INTAKE (intake_2)
  *     D-pad up (hold) ....... IN          D-pad down (hold) .... OUT
  *
  *   SHOOTER (shooter_1)
- *     Right trigger ......... variable POWER (open loop), 0 - 100%
- *     Start (press) ......... toggle closed-loop RPM at ShooterSequence.TARGET_RPM
- *                             (pressing the trigger overrides the RPM mode)
+ *     R2 trigger ............ variable POWER (open loop), 0 - 100%
+ *     Options (press) ....... toggle closed-loop RPM at ShooterSequence.TARGET_RPM
+ *                             (pressing R2 overrides the RPM mode)
  *
  *   CONTROL GATE (control_gate_1)
  *     D-pad left (press) .... go to OPEN position
  *     D-pad right (press) ... go to CLOSED position
- *     Hold LEFT TRIGGER + D-pad left/right ... nudge the gate a small step,
+ *     Hold L2 + D-pad left/right ... nudge the gate a small step,
  *                             so you can find the exact positions to copy into
  *                             GATE_OPEN_POSITION / GATE_CLOSED_POSITION.
  *
@@ -77,10 +79,10 @@ public class MotorTest_v2 extends LinearOpMode {
 
             // ---------- DRIVE MOTORS (one at a time) ----------
             double stick = -gamepad1.left_stick_y;  // push forward = positive
-            double fl = gamepad1.x ? stick : 0.0;
-            double fr = gamepad1.y ? stick : 0.0;
-            double bl = gamepad1.a ? stick : 0.0;
-            double br = gamepad1.b ? stick : 0.0;
+            double fl = gamepad1.square   ? stick : 0.0;
+            double fr = gamepad1.triangle ? stick : 0.0;
+            double bl = gamepad1.cross    ? stick : 0.0;
+            double br = gamepad1.circle   ? stick : 0.0;
             robot.setMotorPowers(fl, fr, bl, br);
 
             // ---------- PRIMARY INTAKE ----------
@@ -96,11 +98,11 @@ public class MotorTest_v2 extends LinearOpMode {
             robot.setIntake2Power(intake2Power);
 
             // ---------- SHOOTER ----------
-            if (gamepad1.start && !prevStart) {
+            if (gamepad1.options && !prevStart) {
                 rpmMode = !rpmMode;
                 if (!rpmMode) robot.shooterOff();
             }
-            prevStart = gamepad1.start;
+            prevStart = gamepad1.options;
 
             String shooterMode;
             if (gamepad1.right_trigger > 0.05) {
@@ -135,7 +137,7 @@ public class MotorTest_v2 extends LinearOpMode {
             double gateDegreesFromOpen = (gatePosition - RobotHardware.GATE_OPEN_POSITION)
                     * RobotHardware.SERVO_RANGE_DEGREES;
 
-            telemetry.addLine("=== DRIVE (hold X/Y/A/B + left stick) ===");
+            telemetry.addLine("=== DRIVE (hold Square/Triangle/Cross/Circle + left stick) ===");
             telemetry.addData("FL / FR", "%+.2f / %+.2f", fl, fr);
             telemetry.addData("BL / BR", "%+.2f / %+.2f", bl, br);
 

@@ -15,11 +15,12 @@
  *   Left bumper  (hold) -> run PRIMARY intake OUT (eject)
  *
  * SHOOTER controls (gamepad2 = second controller):
- *   A button (press)    -> start/stop the SHOOTER SEQUENCE. First press: flywheel
- *                          spins up to target RPM, then the control gate opens and
- *                          the secondary intake feeds pollen. Second press runs it
- *                          in reverse (feed off, gate closed, flywheel off).
- *                          See ShooterSequence.java to tune the target RPM.
+ *   The FLYWHEEL spins up at PLAY and runs for the whole TeleOp.
+ *   Cross (press)       -> FIRE: opens the control gate and runs the secondary
+ *                          intake. If the flywheel isn't at speed yet, the shot is
+ *                          armed and fires automatically once it is.
+ *   Cross (press again) -> CEASE FIRE: feed off, gate closed. Flywheel keeps going.
+ *   See ShooterSequence.java to tune TARGET_RPM / RPM_TOLERANCE.
  *
  * The driver collects pollen with the intake while driving; the second person
  * runs the shooter. If you only have one driver, change the "gamepad2"
@@ -45,17 +46,17 @@ public class TeleOpDrive extends LinearOpMode {
     // easier to control. 0.6 = 60% speed. Tune to taste.
     private static final double NORMAL_SPEED = 0.6;
 
-    // Runs the shooter startup/shutdown sequence (created after robot.init()).
-    private ShooterSequence shooter;
-    // Remembers last loop's A-button state so we only react to a NEW press
+    // Flywheel runs continuously; the fire button only works the gate + feed.
+    private ContinuousShooter shooter;
+    // Remembers last loop's fire-button state so we only react to a NEW press
     // (the rising edge), not every loop the button is held down.
-    private boolean previousAButton = false;
+    private boolean previousFireButton = false;
 
     @Override
     public void runOpMode() {
         // Set up all the motors.
         robot.init(hardwareMap);
-        shooter = new ShooterSequence(robot);
+        shooter = new ContinuousShooter(robot);
 
         telemetry.addData("Status", "Initialized - press PLAY to drive");
         telemetry.update();
@@ -63,6 +64,9 @@ public class TeleOpDrive extends LinearOpMode {
         // Wait here until the driver presses the PLAY (start) button.
         waitForStart();
         runtime.reset();
+
+        // Spin the flywheel up right away; it stays running for the whole TeleOp.
+        shooter.start();
 
         // Loop until the match ends or the driver presses STOP.
         while (opModeIsActive()) {
@@ -79,22 +83,27 @@ public class TeleOpDrive extends LinearOpMode {
             robot.drive(axial * speedScale, lateral * speedScale, yaw * speedScale);
 
             // ---------- PRIMARY INTAKE (gamepad1 bumpers, hold to run) ----------
-            if (gamepad1.right_bumper) {
-                robot.intakeIn();
-            } else if (gamepad1.left_bumper) {
+            // While the shooter is firing, the primary intake also runs IN to push
+            // pollen through to the shooter. The driver's left bumper (eject)
+            // still overrides it, e.g. to clear a jam.
+            boolean firing = shooter.isFiring();
+            if (gamepad1.left_bumper) {
                 robot.intakeOut();
+            } else if (gamepad1.right_bumper || firing) {
+                robot.intakeIn();
             } else {
                 robot.stopIntake();
             }
 
-            // ---------- SHOOTER (gamepad2 A, press to start/stop the sequence) ----------
-            // Edge detection: only react when A goes from up to down.
-            if (gamepad2.a && !previousAButton) {
-                shooter.toggle();
+            // ---------- SHOOTER (gamepad2 Cross, press to fire / cease fire) ----------
+            // The flywheel is always spinning. Cross opens the gate and runs the
+            // feed intake (only once the flywheel is at speed); press again to stop.
+            if (gamepad2.cross && !previousFireButton) {
+                shooter.toggleFire();
             }
-            previousAButton = gamepad2.a;
+            previousFireButton = gamepad2.cross;
 
-            // Advance the startup sequence (spin up -> open gate -> feed).
+            // Track flywheel speed and fire an armed shot once at speed.
             shooter.update();
 
             // Show useful info on the Driver Station screen.
@@ -103,12 +112,13 @@ public class TeleOpDrive extends LinearOpMode {
             telemetry.addData("Axial / Lateral / Yaw", "%.2f / %.2f / %.2f",
                     axial, lateral, yaw);
             telemetry.addData("Shooter state", shooter.getState());
-            telemetry.addData("Shooter RPM", "%.0f / %.0f",
+            telemetry.addData("Flywheel RPM", "%.0f / %.0f",
                     robot.getShooterRpm(), ShooterSequence.TARGET_RPM);
+            telemetry.addData("Ready to fire", shooter.isAtSpeed() ? "YES" : "no");
             telemetry.update();
         }
 
-        shooter.forceStop();
+        shooter.stop();
         robot.stop();
     }
 }
